@@ -1,9 +1,9 @@
-import { HandLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
+import { HandLandmarker, FilesetResolver, DrawingUtils } from "@mediapipe/tasks-vision";
 
 
 // canvas context
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
-const ctx = canvas.getContext("2d");
+const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
 const info = document.getElementById("info") as HTMLDivElement;
 const video = document.getElementById("video") as HTMLVideoElement;
 let lastVideoTime = -1;
@@ -25,6 +25,10 @@ const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, 
 
 video.srcObject = stream;
 await video.play();
+
+// make canvas and video at same size
+canvas.width = video.videoWidth;
+canvas.height  = video.videoHeight;
 
 function init() {
 
