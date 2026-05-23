@@ -3,18 +3,147 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bun</title>
-    <!-- You can replace JSDeliver with another CDN if you prefer to -->
+    <title>HANDGRIP · vision deck</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.mjs"
       scrossorigin="anonymous"></script>
-    <!-- add tailwind to basic styling -->    
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script> 
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;800&family=Fraunces:opsz,wght@9..144,300;9..144,600;9..144,900&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --bg: #0a0c0b;
+        --ink: #e8efe9;
+        --dim: #5a6660;
+        --acid: #00ff88;
+        --blood: #ff2e4d;
+        --amber: #ffb547;
+      }
+      html, body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', monospace; }
+      .font-display { font-family: 'Fraunces', serif; font-optical-sizing: auto; }
+      .grid-bg {
+        background-image:
+          linear-gradient(rgba(0,255,136,.06) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0,255,136,.06) 1px, transparent 1px);
+        background-size: 32px 32px;
+      }
+      .scanlines::after {
+        content: ''; position: absolute; inset: 0; pointer-events: none;
+        background: repeating-linear-gradient(0deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,.18) 3px, rgba(0,0,0,0) 4px);
+        mix-blend-mode: overlay;
+      }
+      .glow-acid { box-shadow: 0 0 0 1px rgba(0,255,136,.3), 0 0 60px -10px rgba(0,255,136,.4), inset 0 0 80px -20px rgba(0,255,136,.08); }
+      .corner { position: absolute; width: 18px; height: 18px; border-color: var(--acid); }
+      .corner.tl { top: -1px; left: -1px; border-top: 2px solid; border-left: 2px solid; }
+      .corner.tr { top: -1px; right: -1px; border-top: 2px solid; border-right: 2px solid; }
+      .corner.bl { bottom: -1px; left: -1px; border-bottom: 2px solid; border-left: 2px solid; }
+      .corner.br { bottom: -1px; right: -1px; border-bottom: 2px solid; border-right: 2px solid; }
+      #video, #canvas { transform: scaleX(-1); } /* mirror for natural feel */
+      .pulse-dot { animation: pulse 1.4s ease-in-out infinite; }
+      @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+      .ticker { animation: tick 18s linear infinite; }
+      @keyframes tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+      .reveal { animation: reveal .9s cubic-bezier(.2,.7,.2,1) both; }
+      @keyframes reveal { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    </style>
   </head>
-  <body>
-    <h1>Bun!</h1>
-      <video id="video" autoplay playsinline> </video>
-      <div id="info">Carregando modelo...</div>
-      <canvas id="canvas" width="640" height="480"></canvas>
+  <body class="min-h-screen grid-bg relative overflow-x-hidden">
+
+    <!-- ambient glow -->
+    <div class="pointer-events-none fixed -top-40 -left-40 w-[40rem] h-[40rem] rounded-full blur-3xl opacity-[0.12]" style="background: radial-gradient(circle, var(--acid), transparent 60%);"></div>
+    <div class="pointer-events-none fixed -bottom-40 -right-40 w-[40rem] h-[40rem] rounded-full blur-3xl opacity-[0.10]" style="background: radial-gradient(circle, var(--blood), transparent 60%);"></div>
+
+    <!-- top bar -->
+    <header class="relative z-10 flex items-center justify-between px-6 md:px-10 py-5 border-b border-white/5 reveal">
+      <div class="flex items-center gap-3">
+        <div class="w-2 h-2 rounded-full pulse-dot" style="background: var(--acid);"></div>
+        <span class="text-[11px] tracking-[0.3em] uppercase text-white/60">handgrip · vision deck</span>
+      </div>
+      <div class="hidden md:flex items-center gap-6 text-[11px] tracking-widest uppercase text-white/40">
+        <span>v0.1 — poc</span>
+        <span>mediapipe / wasm</span>
+        <span id="clock">--:--:--</span>
+      </div>
+    </header>
+
+    <!-- title -->
+    <section class="relative z-10 px-6 md:px-10 pt-10 pb-6 reveal" style="animation-delay:.1s">
+      <p class="text-[11px] tracking-[0.4em] uppercase text-white/40 mb-3">[ realtime · landmark inference ]</p>
+      <h1 class="font-display text-5xl md:text-7xl leading-[0.95] tracking-tight">
+        Hand<span style="color: var(--acid)">/</span>grip
+        <span class="italic font-light text-white/50">— observing fingers in the dark.</span>
+      </h1>
+    </section>
+
+    <!-- main grid -->
+    <main class="relative z-10 px-6 md:px-10 pb-12 grid grid-cols-12 gap-6 reveal" style="animation-delay:.2s">
+
+      <!-- viewport -->
+      <div class="col-span-12 lg:col-span-9">
+        <div class="relative rounded-sm overflow-hidden glow-acid scanlines bg-black/60" style="aspect-ratio: 4/3;">
+          <div class="corner tl"></div><div class="corner tr"></div>
+          <div class="corner bl"></div><div class="corner br"></div>
+
+          <video id="video" autoplay playsinline muted
+            class="absolute inset-0 w-full h-full object-cover"></video>
+          <canvas id="canvas" width="640" height="480"
+            class="absolute inset-0 w-full h-full object-cover pointer-events-none"></canvas>
+
+          <!-- HUD overlay -->
+          <div class="absolute top-3 left-3 flex items-center gap-2 text-[10px] tracking-[0.3em] uppercase text-white/80 bg-black/40 backdrop-blur px-2 py-1">
+            <span class="w-1.5 h-1.5 rounded-full pulse-dot" style="background: var(--blood);"></span>
+            REC · LIVE
+          </div>
+          <div class="absolute top-3 right-3 text-[10px] tracking-[0.3em] uppercase text-white/60 bg-black/40 backdrop-blur px-2 py-1">
+            640 × 480 · gpu
+          </div>
+          <div class="absolute bottom-3 left-3 right-3 flex items-end justify-between text-[10px] tracking-[0.3em] uppercase text-white/60">
+            <span>ch.01 — hand_landmarker</span>
+            <span class="hidden sm:inline">connectors <span style="color: var(--acid)">●</span>  landmarks <span style="color: var(--blood)">●</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- side panel -->
+      <aside class="col-span-12 lg:col-span-3 flex flex-col gap-4">
+        <div class="border border-white/10 p-5 bg-white/[0.02] backdrop-blur-sm">
+          <p class="text-[10px] tracking-[0.3em] uppercase text-white/40 mb-3">status</p>
+          <div id="info" class="font-display text-2xl leading-tight" style="color: var(--acid)">Carregando modelo...</div>
+        </div>
+
+        <div class="border border-white/10 p-5 bg-white/[0.02]">
+          <p class="text-[10px] tracking-[0.3em] uppercase text-white/40 mb-4">legend</p>
+          <ul class="space-y-3 text-sm">
+            <li class="flex items-center gap-3">
+              <span class="w-6 h-[3px]" style="background: var(--acid)"></span>
+              <span class="text-white/70">connectors</span>
+            </li>
+            <li class="flex items-center gap-3">
+              <span class="w-2.5 h-2.5 rounded-full" style="background: var(--blood)"></span>
+              <span class="text-white/70">landmarks</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="border border-white/10 p-5 bg-white/[0.02] text-[11px] leading-relaxed text-white/50">
+          <p class="text-[10px] tracking-[0.3em] uppercase text-white/40 mb-2">brief</p>
+          21 keypoints per hand. Inferred frame-by-frame. Nothing leaves the device.
+        </div>
+      </aside>
+    </main>
+
+    <!-- ticker -->
+    <footer class="relative z-10 border-t border-white/5 py-3 overflow-hidden">
+      <div class="ticker whitespace-nowrap text-[11px] tracking-[0.4em] uppercase text-white/30 flex gap-12">
+        <span>· hand_landmarker.task · float16 · gpu delegate · 21 keypoints · video runningmode · 2 hands max · localhost only · getusermedia · </span>
+        <span>· hand_landmarker.task · float16 · gpu delegate · 21 keypoints · video runningmode · 2 hands max · localhost only · getusermedia · </span>
+      </div>
+    </footer>
+
+    <script>
+      const c = document.getElementById('clock');
+      if (c) setInterval(() => { c.textContent = new Date().toTimeString().slice(0,8); }, 1000);
+    </script>
   </body>
   <script type="module" src="/scripts/script.ts"></script>
 </html>

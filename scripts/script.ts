@@ -1,4 +1,4 @@
-import { HandLandmarker, FilesetResolver, DrawingUtils } from "@mediapipe/tasks-vision";
+import { HandLandmarker, FilesetResolver, DrawingUtils, type HandLandmarkerResult } from "@mediapipe/tasks-vision";
 
 
 // canvas context
@@ -16,10 +16,11 @@ const handLandmarker = await HandLandmarker.createFromOptions(vision, {
     modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
     delegate: "GPU"
   },
+
   runningMode: "VIDEO",
   // can be one/1
   numHands: 2
-})
+});
 
 const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
 
@@ -29,6 +30,33 @@ await video.play();
 // make canvas and video at same size
 canvas.width = video.videoWidth;
 canvas.height  = video.videoHeight;
+
+const drawingUtils = new DrawingUtils(ctx);
+
+function drawLandMarks(landmark: any[]) {
+  drawingUtils.drawConnectors(landmark, HandLandmarker.HAND_CONNECTIONS, {
+    color: "#00FF00",
+    lineWidth: 5,
+  })
+  drawingUtils.drawLandmarks(landmark, { color: "#FF0000", lineWidth: 2})
+}
+/**
+* Draw lines for dected hands
+*/
+function drawHands(detections: HandLandmarkerResult): void {
+  ctx.save();
+  ctx.clearRect(0, 0 , canvas.width, canvas.height);
+  ctx.beginPath();
+  ctx.rect(0, 0, canvas.width, canvas.height);
+  ctx.clip();
+
+  if (detections.landmarks) {
+    for (const landmark of detections.landmarks) {
+      drawLandMarks(landmark)
+    }
+  }
+}
+
 
 function init() {
 
@@ -42,6 +70,7 @@ function init() {
     const detections = handLandmarker.detectForVideo(video, performance.now());
     lastVideoTime = video.currentTime;
 
+   drawHands(detections);
     const hands = {
       leftHand: false,
       rightHand: false,
