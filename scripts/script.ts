@@ -1,51 +1,59 @@
-import { HandLandmarker, FilesetResolver, DrawingUtils, type HandLandmarkerResult } from "@mediapipe/tasks-vision";
+import { HandLandmarker, FilesetResolver, DrawingUtils, type HandLandmarkerResult, type Detection, FaceDetector } from "@mediapipe/tasks-vision";
 
+const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
 
-// canvas context
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
+
 const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
+
+const drawingUtils = new DrawingUtils(ctx);
+
 const info = document.getElementById("info") as HTMLDivElement;
+
 const video = document.getElementById("video") as HTMLVideoElement;
+video.srcObject = stream;
+await video.play();
+
+canvas.width = video.videoWidth;
+canvas.height = video.videoHeight;
 let lastVideoTime = -1;
 
 const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
-
-
 const handLandmarker = await HandLandmarker.createFromOptions(vision, {
   baseOptions: {
     modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
     delegate: "GPU"
   },
-
   runningMode: "VIDEO",
-  // can be one/1
+  // TODO: Can be configured by user input
   numHands: 2
 });
 
-const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
 
-video.srcObject = stream;
-await video.play();
 
-// make canvas and video at same size
-canvas.width = video.videoWidth;
-canvas.height  = video.videoHeight;
+// moved to outside the loop to avoid recreate the variable
+const hands = {
+  leftHand: false,
+  rightHand: false,
+}
 
-const drawingUtils = new DrawingUtils(ctx);
-
+/**
+* Draw conectors using `DrawingUtils` from media pipe
+*/
 function drawLandMarks(landmark: any[]) {
   drawingUtils.drawConnectors(landmark, HandLandmarker.HAND_CONNECTIONS, {
     color: "#00FF00",
     lineWidth: 5,
   })
-  drawingUtils.drawLandmarks(landmark, { color: "#FF0000", lineWidth: 2})
+  drawingUtils.drawLandmarks(landmark, { color: "#FF0000", lineWidth: 2 })
 }
+
 /**
 * Draw lines for dected hands
 */
 function drawHands(detections: HandLandmarkerResult): void {
   ctx.save();
-  ctx.clearRect(0, 0 , canvas.width, canvas.height);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.beginPath();
   ctx.rect(0, 0, canvas.width, canvas.height);
   ctx.clip();
@@ -57,6 +65,34 @@ function drawHands(detections: HandLandmarkerResult): void {
   }
 }
 
+
+/**
+* Filter landmark detection to know hand side
+*/
+function identifyHands(detections: HandLandmarkerResult) {
+
+  for (const handCategories of detections.handedness) {
+    const top = handCategories[0];
+    if (!top) continue;
+
+    if (top.displayName == "Right") hands.rightHand = true;
+
+    if (top.displayName == "Left") hands.leftHand = true;
+
+  }
+
+  let msg = "Nenhuma mão detectada";
+
+  if (hands.leftHand && hands.rightHand) {
+    msg = "Ambas mãos detectadas";
+  } else if (hands.rightHand) {
+    msg = "mão direita detectada";
+  } else if (hands.leftHand) {
+    msg = "mão esquerda detectada";
+  }
+
+  info.textContent = msg;
+}
 
 function init() {
 
@@ -70,33 +106,8 @@ function init() {
     const detections = handLandmarker.detectForVideo(video, performance.now());
     lastVideoTime = video.currentTime;
 
-   drawHands(detections);
-    const hands = {
-      leftHand: false,
-      rightHand: false,
-    }
-
-    for (const handCategories of detections.handedness) {
-      const top = handCategories[0];
-      if (!top) continue;
-
-      if (top.displayName == "Right") hands.rightHand = true;
-
-      if (top.displayName == "Left") hands.leftHand = true;
-        
-    }
-
-    let msg = "Nenhuma mão detectada";
-
-    if (hands.leftHand && hands.rightHand) {
-      msg = "Ambas mãos detectadas";
-    } else if (hands.rightHand) {
-      msg = "mão direita detectada";
-    } else if (hands.leftHand) {
-      msg = "mão esquerda detectada";
-    }
-
-    info.textContent = msg;
+    drawHands(detections);
+    identifyHands(detections);
   }
 
   requestAnimationFrame(() => {
