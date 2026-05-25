@@ -83,10 +83,28 @@ function drawHands(detections: HandLandmarkerResult): void {
 * Filter landmark detection to know hand side
 */
 function identifyHands(detections: HandLandmarkerResult) {
-
+  let top;
   for (const handCategories of detections.handedness) {
-    const top = handCategories[0];
+    if (!handCategories[0]) {
+      hands.leftHand = false;
+      hands.rightHand = false;
+      continue;
+    }
+    if (handCategories[0]) {
+      top = handCategories[0];
+    }
+
+    if (!handCategories[1]) {
+      hands.leftHand = false;
+      hands.rightHand = false;
+      continue;
+    }
+
+    if (handCategories[1]) {
+      top = handCategories[1];
+    }
     if (!top) continue;
+    console.log(`display name: ${top.displayName}`);
 
     if (top.displayName == "Right") hands.rightHand = true;
 
@@ -102,6 +120,9 @@ function identifyHands(detections: HandLandmarkerResult) {
     msg = "mão direita detectada";
   } else if (hands.leftHand) {
     msg = "mão esquerda detectada";
+  }
+  if (!hands.leftHand || hands.rightHand) {
+    info.textContent = msg;
   }
 
   info.textContent = msg;
@@ -139,7 +160,6 @@ function identifyHandGripMovement(detections: HandLandmarkerResult): void {
     if (!hand) return;
 
     const grip = calculateHandGrip(hand)
-    sumRepetitions(grip)
     info.textContent = `Grip: ${grip.toFixed(3)}`
   }
 
@@ -147,25 +167,15 @@ function identifyHandGripMovement(detections: HandLandmarkerResult): void {
   if (numberOfHands >= 1) {
     const hand = detections.landmarks[1];
     if (!hand) return;
+
     const grip = calculateHandGrip(hand);
-    sumRepetitions(grip)
+
     info.textContent = `Grip: ${grip.toFixed(3)}`
   }
 }
 
 
-/**
-* Use @param [targetApproximationClose=0.700] to validate if the
-* handmark direction is close to this number and the hand is closed
-* And @param [targetApproximationOpen=1.500] to validate if the
-* handmark is open. WIth this both information we can validate if a sum
-* of movements contabilize as one repetition 
-*/
-function sumRepetitions(handMarkActualPosition: number,
-  targetApproximationClose = 0.700,
-  targetApproximationOpen = 1.000): number {
 
-}
 
 
 /**
