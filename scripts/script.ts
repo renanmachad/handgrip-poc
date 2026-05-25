@@ -191,7 +191,7 @@ function calculateHandGrip(hand: NormalizedLandmark[]): number {
     wrist.y - middlemcp.y
   );
 
-  const tips = [8, 12, 16, 20].map(i => hand[i]);
+  const tips = FINGERTIPS.map(i => hand[i]);
 
   const avgDist = tips.map(tip => {
     if (!tip) return 0;
@@ -215,9 +215,10 @@ class RepCounter {
   // - contagem
   private count: number = 0;
 
-  private static MAX_WINDOW_SIZE = 100;
-  private static MIN_VALUE  = 100;
-  private average = 0.300;
+  private static MAX_WINDOW_SIZE = 90;
+  private static MIN_VALUE  = 30;
+  // half of 30
+  private static MIN_RANGE = 0.15;
   
   process(grip: number): void {
     this.buffer.push(grip);
@@ -231,7 +232,6 @@ class RepCounter {
     const range = maxValue - minValue;
     this.avgBufferSize = range;
     // 4. se range é pequeno demais, retorna
-    if (range < this.average ) return;
     // 5. calcula closeThreshold e openThreshold a partir do range
     
     // 6. aplica lógica de hysteresis pra atualizar estado e count
