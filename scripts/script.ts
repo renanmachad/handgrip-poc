@@ -1,13 +1,12 @@
 import { HandLandmarker, FilesetResolver, DrawingUtils, type HandLandmarkerResult, type Detection, FaceDetector, type NormalizedLandmark } from "@mediapipe/tasks-vision";
 
 // indixes for access finger tips on landmarkers results
-const FINGERTIPS = {
-  THUMB: 4,
-  INDEX: 8,
-  MIDDLE: 12,
-  RING: 16,
-  PINKY: 20,
-} as const;
+const FINGERTIPS = [
+   8,
+   12,
+   16,
+   20,
+];
 
 const MID = {
   MIDDLE: 9
@@ -41,8 +40,6 @@ const handLandmarker = await HandLandmarker.createFromOptions(vision, {
   // TODO: Can be configured by user input
   numHands: 1
 });
-
-
 
 // moved to outside the loop to avoid recreate the variable
 const hands = {
@@ -103,8 +100,9 @@ function identifyHands(detections: HandLandmarkerResult) {
     if (handCategories[1]) {
       top = handCategories[1];
     }
+
     if (!top) continue;
-    console.log(`display name: ${top.displayName}`);
+
 
     if (top.displayName == "Right") hands.rightHand = true;
 
@@ -158,7 +156,6 @@ function identifyHandGripMovement(detections: HandLandmarkerResult): void {
   if (numberOfHands > 0) {
     const hand = detections.landmarks[0];
     if (!hand) return;
-
     const grip = calculateHandGrip(hand)
     info.textContent = `Grip: ${grip.toFixed(3)}`
   }
@@ -207,3 +204,44 @@ function calculateHandGrip(hand: NormalizedLandmark[]): number {
 
 init()
 
+
+class RepCounter {
+  // estado interno
+  private buffer : number[] = []
+  private avgBufferSize = 0.0;
+  // - histórico recente de valores
+  private isOpen: boolean = false;
+  private isClose: boolean = false;
+  // - contagem
+  private count: number = 0;
+
+  private static MAX_WINDOW_SIZE = 100;
+  private static MIN_VALUE  = 100;
+  private average = 0.300;
+  
+  process(grip: number): void {
+    this.buffer.push(grip);
+
+    if (this.buffer.length < RepCounter.MIN_VALUE) return;
+
+    if (this.buffer.length > RepCounter.MAX_WINDOW_SIZE) this.buffer.shift();
+    // 3. calcula min, max, range do histórico
+    const minValue = Math.min(...this.buffer);
+    const maxValue = Math.max(...this.buffer);
+    const range = maxValue - minValue;
+    this.avgBufferSize = range;
+    // 4. se range é pequeno demais, retorna
+    if (range < this.average ) return;
+    // 5. calcula closeThreshold e openThreshold a partir do range
+    
+    // 6. aplica lógica de hysteresis pra atualizar estado e count
+  }
+
+  getCount(): number {
+    return 0;
+  }
+
+  getDebugInfo(): void {
+
+  } // útil pra debugar
+}
