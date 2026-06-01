@@ -1,11 +1,131 @@
 import { HandLandmarker, FilesetResolver, DrawingUtils, type HandLandmarkerResult, type Detection, FaceDetector, type NormalizedLandmark } from "@mediapipe/tasks-vision";
 
+
+
+enum GripState {
+  OPEN = "OPEN",
+  CLOSED = "CLOSED"
+};
+
+class RepCounter {
+  // estado interno
+  private buffer: number[] = [];
+
+  private smoothedGrip = 0;
+
+  // EMA factor
+  private readonly alpha = 0.2;
+
+  private state = GripState.OPEN;
+
+  private count = 0;
+
+  private debug = {
+    min: 0,
+    max: 0,
+    range: 0,
+    closeThreshold: 0,
+    openThreshold: 0,
+    smoothedGrip: 0,
+    state: GripState.OPEN
+  };
+
+  private static MAX_WINDOW_SIZE = 60;
+
+  private static MIN_SAMPLES = 20;
+
+  private static MIN_RANGE = 0.12;
+
+
+  process(rawGrip: number): void {
+
+    // ================
+    // 1. Smooth signal
+    // ================
+    const grip = this.alpha * rawGrip + (1 - this.alpha) * this.smoothedGrip;
+    this.smoothedGrip = grip;
+
+    // ================
+    // 2. Store history
+    // ================
+
+    this.buffer.push(grip);
+
+    if (this.buffer.length > RepCounter.MAX_WINDOW_SIZE) {
+      this.buffer.shift();
+    }
+
+    if (this.buffer.length < RepCounter.MIN_SAMPLES) {
+      return;
+    }
+
+    // ===============
+    // 3. Dynamic range
+    // ===============
+    const min = Math.min(...this.buffer);
+    const max = Math.max(...this.buffer);
+
+    const range = max - min;
+
+    // ignore noise
+    if (range < RepCounter.MIN_RANGE) {
+      return;
+    }
+
+    const closeThreshold = min + range * 0.35;
+    const openThreshold = min + range * 0.75;
+
+    // ================
+    // 5. State machine
+    // ================
+
+    switch (this.state) {
+      case GripState.OPEN:
+        if (grip < closeThreshold) {
+          this.state = GripState.CLOSED;
+        }
+        break;
+
+      case GripState.CLOSED:
+        if (grip > openThreshold) {
+          this.state = GripState.OPEN;
+          this.count++;
+        }
+        break;
+    }
+
+    // =============
+    // 6. debug info
+    // =============
+
+    this.debug = {
+      min,
+      max,
+      range,
+      closeThreshold,
+      openThreshold,
+      smoothedGrip: grip,
+      state: this.state
+    }
+
+  }
+
+
+  getCount(): number {
+    return this.count;
+  }
+
+  getDebugInfo() {
+    return this.debug;
+  } // útil pra debugar
+}
+
 // indixes for access finger tips on landmarkers results
 const FINGERTIPS = [
-   8,
-   12,
-   16,
-   20,
+  8,
+  12,
+  16,
+  20,
 ];
 
 const MID = {
@@ -40,7 +160,7 @@ const handLandmarker = await HandLandmarker.createFromOptions(vision, {
   // TODO: Can be configured by user input
   numHands: 1
 });
-
+const repCounter = new RepCounter();
 // moved to outside the loop to avoid recreate the variable
 const hands = {
   leftHand: false,
@@ -126,6 +246,7 @@ function identifyHands(detections: HandLandmarkerResult) {
   info.textContent = msg;
 }
 
+
 function init() {
 
   if (video.videoWidth == 0 || video.videoHeight == 0) {
@@ -152,28 +273,30 @@ function init() {
 function identifyHandGripMovement(detections: HandLandmarkerResult): void {
   const numberOfHands = detections.landmarks.length;
 
-  // first hand 
-  if (numberOfHands > 0) {
-    const hand = detections.landmarks[0];
-    if (!hand) return;
-    const grip = calculateHandGrip(hand)
-    info.textContent = `Grip: ${grip.toFixed(3)}`
+  if (numberOfHands === 0) {
+    info.textContent = "Nenhuma mão";
+    return;
   }
 
-  // second hand
-  if (numberOfHands >= 1) {
-    const hand = detections.landmarks[1];
-    if (!hand) return;
+  const hand = detections.landmarks[0];
 
-    const grip = calculateHandGrip(hand);
+  if (!hand) return;
 
-    info.textContent = `Grip: ${grip.toFixed(3)}`
-  }
+  const grip = calculateHandGrip(hand);
+
+  repCounter.process(grip);
+
+  const debug = repCounter.getDebugInfo();
+
+  info.innerHTML = `
+    Grip: ${grip.toFixed(3)} <br>
+    Smooth: ${debug.smoothedGrip} <br>
+    Range: ${debug.range} <br>
+    State: ${debug.state} <br>
+    Reps: ${repCounter.getCount()}
+  `;
+
 }
-
-
-
-
 
 /**
 * Calculate average difference of wrist of hand and tips of fingers
@@ -181,67 +304,35 @@ function identifyHandGripMovement(detections: HandLandmarkerResult): void {
 function calculateHandGrip(hand: NormalizedLandmark[]): number {
   const wrist = hand[0]
 
-  const middlemcp = hand[MID.MIDDLE];
+  const palm = hand[MID.MIDDLE];
 
-  if (!wrist) return 0;
-  if (!middlemcp) return 0;
+  if (!wrist || !palm) return 0;
 
   const handSize = Math.hypot(
-    wrist.x - middlemcp.x,
-    wrist.y - middlemcp.y
-  );
+    wrist.x - palm.x,
+    wrist.y - palm.y
+  )
 
-  const tips = FINGERTIPS.map(i => hand[i]);
+  let total = 0;
 
-  const avgDist = tips.map(tip => {
-    if (!tip) return 0;
-    return Math.hypot(wrist.x - tip.x, wrist.y - tip.y)
-  })
-    .reduce((a, b) => a + b, 0) / tips.length
+  for (const tipIndex of FINGERTIPS) {
+    const tip = hand[tipIndex]
 
-  return avgDist / handSize
+    if (!tip) continue;
+
+    const dist = Math.hypot(
+      palm.x - tip.x,
+      palm.y - tip.y
+    )
+
+    total += dist;
+  }
+
+  const avg = total / FINGERTIPS.length;
+
+  return avg / handSize;
 }
 
 init()
 
 
-class RepCounter {
-  // estado interno
-  private buffer : number[] = []
-  private avgBufferSize = 0.0;
-  // - histórico recente de valores
-  private isOpen: boolean = false;
-  private isClose: boolean = false;
-  // - contagem
-  private count: number = 0;
-
-  private static MAX_WINDOW_SIZE = 90;
-  private static MIN_VALUE  = 30;
-  // half of 30
-  private static MIN_RANGE = 0.15;
-  
-  process(grip: number): void {
-    this.buffer.push(grip);
-
-    if (this.buffer.length < RepCounter.MIN_VALUE) return;
-
-    if (this.buffer.length > RepCounter.MAX_WINDOW_SIZE) this.buffer.shift();
-    // 3. calcula min, max, range do histórico
-    const minValue = Math.min(...this.buffer);
-    const maxValue = Math.max(...this.buffer);
-    const range = maxValue - minValue;
-    this.avgBufferSize = range;
-    // 4. se range é pequeno demais, retorna
-    // 5. calcula closeThreshold e openThreshold a partir do range
-    
-    // 6. aplica lógica de hysteresis pra atualizar estado e count
-  }
-
-  getCount(): number {
-    return 0;
-  }
-
-  getDebugInfo(): void {
-
-  } // útil pra debugar
-}
