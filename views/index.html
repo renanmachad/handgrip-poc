@@ -1,389 +1,575 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HANDGRIP · vision deck</title>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.mjs"
-      scrossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;800&family=Fraunces:opsz,wght@9..144,300;9..144,600;9..144,900&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Handgrip — a study in computer vision</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,500;9..144,700&family=Manrope:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
     <style>
       :root {
-        --bg: #07090a;
-        --panel: #0c100f;
-        --ink: #ecefe8;
-        --bone: #d8d2c2;
-        --dim: #5a6660;
-        --line: rgba(236,239,232,.08);
-        --acid: #c6ff3d;     /* electric lime */
-        --acid-deep: #7fb500;
-        --blood: #ff3535;
-        --amber: #ffb547;
-      }
-      * { -webkit-font-smoothing: antialiased; }
-      html, body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', monospace; }
-      .font-serif { font-family: 'Fraunces', serif; font-optical-sizing: auto; }
-      .font-edito { font-family: 'Instrument Serif', serif; }
-      .font-mono { font-family: 'JetBrains Mono', monospace; }
-
-      /* atmosphere */
-      .grain::before {
-        content:''; position: fixed; inset:-50%; pointer-events:none; z-index:1; opacity:.08;
-        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .5 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-        mix-blend-mode: overlay;
-      }
-      .grid-faint {
-        background-image:
-          linear-gradient(rgba(236,239,232,.035) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(236,239,232,.035) 1px, transparent 1px);
-        background-size: 56px 56px;
-        background-position: -1px -1px;
-      }
-      .scanlines::after {
-        content: ''; position: absolute; inset: 0; pointer-events: none;
-        background: repeating-linear-gradient(0deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,.22) 3px, rgba(0,0,0,0) 4px);
-        mix-blend-mode: overlay;
-      }
-      .vignette::before {
-        content:''; position:absolute; inset:0; pointer-events:none;
-        background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.55) 100%);
+        --paper:   #ece8dd;
+        --paper-2: #e3dfd2;
+        --ink:     #161514;
+        --ink-2:   #2a2826;
+        --mute:    #7a7569;
+        --rule:    #c9c3b3;
+        --accent:  #1f4a3a;        /* deep forest */
+        --accent-soft: #2f6b54;
+        --signal:  #b8431f;        /* rust — used sparingly */
+        --frame-bg: #0d0d0c;
       }
 
-      /* corners */
-      .corner { position: absolute; width: 14px; height: 14px; border-color: var(--acid); }
-      .corner.tl { top: -1px; left: -1px; border-top: 1.5px solid; border-left: 1.5px solid; }
-      .corner.tr { top: -1px; right: -1px; border-top: 1.5px solid; border-right: 1.5px solid; }
-      .corner.bl { bottom: -1px; left: -1px; border-bottom: 1.5px solid; border-left: 1.5px solid; }
-      .corner.br { bottom: -1px; right: -1px; border-bottom: 1.5px solid; border-right: 1.5px solid; }
+      * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
 
-      #video, #canvas { transform: scaleX(-1); }
+      html, body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: 'Manrope', system-ui, sans-serif;
+        font-weight: 400;
+        font-size: 15px;
+        line-height: 1.5;
+      }
 
-      /* motion */
-      .pulse-dot { animation: pulse 1.4s ease-in-out infinite; }
-      @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .2; } }
-      .blink-soft { animation: blinkSoft 2.6s ease-in-out infinite; }
-      @keyframes blinkSoft { 0%,100% { opacity:.5;} 50%{opacity:1;} }
-      .ticker { animation: tick 28s linear infinite; }
-      @keyframes tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-      .reveal { animation: reveal 1s cubic-bezier(.2,.7,.2,1) both; }
-      @keyframes reveal { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-      .rise { animation: rise 1.1s cubic-bezier(.2,.7,.2,1) both; }
-      @keyframes rise { from { opacity: 0; transform: translateY(28px); clip-path: inset(0 0 100% 0);} to { opacity:1; transform:none; clip-path: inset(0 0 0 0);} }
+      /* faint paper grain */
+      body::before {
+        content: '';
+        position: fixed; inset: 0;
+        pointer-events: none;
+        z-index: 1;
+        opacity: .35;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .08  0 0 0 0 .08  0 0 0 0 .08  0 0 0 .35 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+        mix-blend-mode: multiply;
+      }
 
-      /* hero numerals */
-      .rep-num {
+      .serif   { font-family: 'Fraunces', serif; font-optical-sizing: auto; }
+      .mono    { font-family: 'JetBrains Mono', monospace; }
+
+      .wrap {
+        position: relative; z-index: 2;
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 0 40px;
+      }
+
+      /* ─── top bar ─────────────────────────────────── */
+      .topbar {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 28px 0 20px;
+        border-bottom: 1px solid var(--rule);
+      }
+      .brand { display: flex; align-items: baseline; gap: 14px; }
+      .brand-mark {
+        font-family: 'Fraunces', serif; font-weight: 500;
+        font-size: 22px; letter-spacing: -.01em;
+      }
+      .brand-mark em { font-style: italic; font-weight: 400; color: var(--accent); }
+      .brand-sub {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+        color: var(--mute);
+      }
+      .topmeta {
+        display: flex; gap: 28px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+        color: var(--mute);
+      }
+      .topmeta b { color: var(--ink); font-weight: 500; }
+
+      /* ─── masthead ────────────────────────────────── */
+      .masthead {
+        padding: 72px 0 56px;
+        display: grid; grid-template-columns: 1fr 320px; gap: 64px;
+        align-items: end;
+      }
+      .eyebrow {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11px; letter-spacing: .22em; text-transform: uppercase;
+        color: var(--accent);
+        margin-bottom: 28px;
+        display: flex; align-items: center; gap: 14px;
+      }
+      .eyebrow::before {
+        content: ''; width: 28px; height: 1px; background: var(--accent);
+      }
+      h1.title {
         font-family: 'Fraunces', serif;
-        font-weight: 900;
+        font-weight: 300;
+        font-size: clamp(3.2rem, 7.5vw, 6.4rem);
+        line-height: .96;
+        letter-spacing: -.035em;
+        margin: 0;
+        color: var(--ink);
+      }
+      h1.title em {
+        font-style: italic;
+        font-weight: 300;
+        color: var(--accent);
+      }
+      .lede {
+        font-family: 'Fraunces', serif;
+        font-weight: 300;
+        font-style: italic;
+        font-size: 19px;
+        line-height: 1.55;
+        color: var(--ink-2);
+        padding-left: 22px;
+        border-left: 1px solid var(--rule);
+      }
+      .lede .author {
+        display: block;
+        margin-top: 18px;
+        font-family: 'JetBrains Mono', monospace;
+        font-style: normal;
+        font-size: 10.5px;
+        letter-spacing: .2em;
+        text-transform: uppercase;
+        color: var(--mute);
+      }
+
+      /* ─── main grid ───────────────────────────────── */
+      main {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 340px;
+        gap: 40px;
+        padding-bottom: 64px;
+      }
+
+      .section-label {
+        display: flex; align-items: center; justify-content: space-between;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10.5px; letter-spacing: .22em; text-transform: uppercase;
+        color: var(--mute);
+        margin-bottom: 14px;
+      }
+      .section-label .num { color: var(--ink); font-weight: 500; }
+
+      /* viewport */
+      .viewport {
+        position: relative;
+        background: var(--frame-bg);
+        aspect-ratio: 4 / 3;
+        overflow: hidden;
+        border: 1px solid var(--ink);
+        box-shadow: 0 30px 60px -40px rgba(0,0,0,.35);
+      }
+      #video, #canvas {
+        position: absolute; inset: 0;
+        width: 100%; height: 100%;
+        object-fit: cover;
+        transform: scaleX(-1);
+      }
+      #canvas { pointer-events: none; }
+
+      .viewport-overlay {
+        position: absolute; inset: 0; pointer-events: none;
+        display: flex; flex-direction: column; justify-content: space-between;
+        padding: 16px 18px;
+      }
+      .vp-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+      .vp-tag {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
+        color: rgba(236, 232, 221, .75);
+        background: rgba(0,0,0,.35);
+        backdrop-filter: blur(6px);
+        padding: 6px 10px;
+        border: 1px solid rgba(236, 232, 221, .14);
+      }
+      .vp-tag.live { color: #ece8dd; }
+      .vp-tag .dot {
+        display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+        background: var(--signal); margin-right: 8px;
+        vertical-align: middle;
+        animation: pulse 1.6s ease-in-out infinite;
+      }
+      @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
+
+      .caption {
+        margin-top: 14px;
+        display: flex; justify-content: space-between; align-items: baseline;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10.5px; letter-spacing: .2em; text-transform: uppercase;
+        color: var(--mute);
+      }
+      .caption .figref {
+        font-family: 'Fraunces', serif;
+        font-style: italic;
+        font-weight: 300;
+        text-transform: none;
+        letter-spacing: 0;
+        font-size: 14px;
+        color: var(--ink-2);
+      }
+
+      /* right panel */
+      aside { display: flex; flex-direction: column; gap: 28px; }
+
+      .panel {
+        border-top: 1px solid var(--ink);
+        padding-top: 18px;
+      }
+      .panel-head {
+        display: flex; justify-content: space-between; align-items: baseline;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10.5px; letter-spacing: .22em; text-transform: uppercase;
+        color: var(--mute);
+        margin-bottom: 18px;
+      }
+      .panel-head b { color: var(--ink); font-weight: 500; }
+
+      /* rep counter */
+      .rep-display {
+        display: flex; align-items: baseline; gap: 14px;
+        margin-bottom: 22px;
+      }
+      #reps {
+        font-family: 'Fraunces', serif;
+        font-weight: 300;
         font-variant-numeric: tabular-nums lining-nums;
-        font-feature-settings: "ss01";
-        letter-spacing: -0.06em;
-        line-height: 0.78;
-        color: var(--bone);
-        text-shadow: 0 0 80px rgba(198,255,61,.18);
+        font-size: 120px;
+        line-height: .82;
+        letter-spacing: -.045em;
+        color: var(--ink);
       }
-      .rep-num .accent { color: var(--acid); }
-      .ghost-word {
-        position: absolute; inset: auto 0 -8px 0;
-        font-family: 'Fraunces', serif; font-weight: 900;
-        font-size: clamp(7rem, 18vw, 14rem);
-        letter-spacing: -0.06em; line-height:.78;
-        color: transparent;
-        -webkit-text-stroke: 1px rgba(236,239,232,.06);
-        pointer-events: none; user-select:none; white-space:nowrap;
+      #reps .accent { color: var(--accent); font-style: italic; font-weight: 400; }
+      .rep-unit {
+        font-family: 'Fraunces', serif;
+        font-style: italic;
+        font-weight: 300;
+        font-size: 16px;
+        color: var(--mute);
+        padding-bottom: 8px;
       }
 
-      .vrule { writing-mode: vertical-rl; transform: rotate(180deg); }
-
-      /* signature stripe */
-      .acid-stripe {
-        background: repeating-linear-gradient(135deg,
-          var(--acid) 0 8px, transparent 8px 14px);
+      .stats {
+        display: grid; grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+        padding-top: 18px;
+        border-top: 1px solid var(--rule);
       }
-      .stat-tick { background-image: repeating-linear-gradient(90deg, rgba(198,255,61,.45) 0 2px, transparent 2px 8px); }
-      .rep-bump { animation: bump .28s cubic-bezier(.2,.8,.2,1); }
-      @keyframes bump { 0% { transform: scale(1);} 35% { transform: scale(1.06);} 100% { transform: scale(1);} }
-
-      .chip { display:inline-flex; align-items:center; gap:.5rem; padding:.25rem .55rem; font-size:10px;
-              letter-spacing:.28em; text-transform:uppercase; color: rgba(236,239,232,.7);
-              background: rgba(7,9,10,.55); backdrop-filter: blur(8px); border: 1px solid var(--line); }
-
-      .card { position:relative; background:
-                linear-gradient(180deg, rgba(236,239,232,.025), rgba(236,239,232,0) 60%),
-                var(--panel);
-              border: 1px solid var(--line);
-            }
-
-      .num-mini { font-family: 'Fraunces', serif; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing:-0.02em; }
-
-      .frame-cut {
-        clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
+      .stat .k {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 9.5px; letter-spacing: .2em; text-transform: uppercase;
+        color: var(--mute);
+        margin-bottom: 6px;
+      }
+      .stat .v {
+        font-family: 'Fraunces', serif;
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+        font-size: 22px;
+        letter-spacing: -.02em;
+        color: var(--ink);
       }
 
-      .glow-edge { box-shadow:
-        inset 0 0 0 1px rgba(198,255,61,.22),
-        0 0 0 1px rgba(0,0,0,.4),
-        0 30px 80px -30px rgba(198,255,61,.18),
-        0 60px 120px -40px rgba(0,0,0,.7);
+      /* status */
+      #info {
+        font-family: 'Fraunces', serif;
+        font-style: italic;
+        font-weight: 300;
+        font-size: 20px;
+        line-height: 1.35;
+        color: var(--ink);
+      }
+      #info br { display: block; content: ''; margin-top: 4px; }
+
+      /* legend */
+      .legend { list-style: none; padding: 0; margin: 0; }
+      .legend li {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--rule);
+        font-size: 14px;
+        color: var(--ink-2);
+      }
+      .legend li:last-child { border-bottom: 0; }
+      .legend .swatch { display: inline-flex; align-items: center; gap: 12px; }
+      .legend .sw-line { width: 24px; height: 2px; background: #45c07a; }
+      .legend .sw-dot  { width: 9px; height: 9px; border-radius: 50%; background: var(--signal); }
+      .legend .sw-sq   { width: 9px; height: 9px; border: 1px solid var(--accent); }
+      .legend .n {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11px; color: var(--mute); letter-spacing: .14em;
       }
 
-      /* sparkline placeholder */
-      .spark {
-        height: 36px;
-        background:
-          radial-gradient(2px 2px at 12% 60%, var(--acid) 99%, transparent 100%),
-          radial-gradient(2px 2px at 24% 40%, var(--acid) 99%, transparent 100%),
-          radial-gradient(2px 2px at 36% 70%, var(--acid) 99%, transparent 100%),
-          radial-gradient(2px 2px at 48% 30%, var(--acid) 99%, transparent 100%),
-          radial-gradient(2px 2px at 60% 55%, var(--acid) 99%, transparent 100%),
-          radial-gradient(2px 2px at 72% 25%, var(--acid) 99%, transparent 100%),
-          radial-gradient(2px 2px at 84% 50%, var(--acid) 99%, transparent 100%),
-          radial-gradient(2px 2px at 96% 20%, var(--acid) 99%, transparent 100%),
-          linear-gradient(180deg, transparent 49%, rgba(236,239,232,.08) 50%, transparent 51%);
+      /* spec table */
+      .specs {
+        margin-top: 16px;
+        border-top: 1px solid var(--ink);
+        padding-top: 40px;
+        padding-bottom: 56px;
+        display: grid;
+        grid-template-columns: 220px 1fr;
+        gap: 40px;
+      }
+      .specs h2 {
+        font-family: 'Fraunces', serif;
+        font-weight: 400;
+        font-size: 28px;
+        letter-spacing: -.02em;
+        margin: 0;
+        color: var(--ink);
+      }
+      .specs h2 em { font-style: italic; color: var(--accent); font-weight: 300; }
+      .specs-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 32px 28px;
+      }
+      .spec dt {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10.5px; letter-spacing: .2em; text-transform: uppercase;
+        color: var(--mute);
+        margin-bottom: 8px;
+      }
+      .spec dd {
+        margin: 0;
+        font-family: 'Fraunces', serif;
+        font-weight: 400;
+        font-size: 19px;
+        letter-spacing: -.01em;
+        color: var(--ink);
+      }
+      .spec dd small {
+        display: block;
+        font-family: 'Manrope', sans-serif;
+        font-weight: 400;
+        font-size: 13px;
+        color: var(--mute);
+        margin-top: 3px;
+        letter-spacing: 0;
       }
 
-      .divider { height:1px; background: linear-gradient(90deg, transparent, var(--line) 20%, var(--line) 80%, transparent); }
+      /* footer */
+      footer {
+        border-top: 1px solid var(--rule);
+        padding: 24px 0 40px;
+        display: flex; justify-content: space-between; align-items: center;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10.5px; letter-spacing: .2em; text-transform: uppercase;
+        color: var(--mute);
+      }
+      footer a {
+        color: var(--ink);
+        text-decoration: none;
+        border-bottom: 1px solid var(--rule);
+        padding-bottom: 2px;
+        transition: border-color .2s ease, color .2s ease;
+      }
+      footer a:hover { color: var(--accent); border-color: var(--accent); }
 
-      a, button { transition: all .25s ease; }
+      /* entrance */
+      .reveal { animation: reveal .9s cubic-bezier(.2,.7,.2,1) both; }
+      .reveal-2 { animation: reveal .9s cubic-bezier(.2,.7,.2,1) .15s both; }
+      .reveal-3 { animation: reveal .9s cubic-bezier(.2,.7,.2,1) .3s both; }
+      @keyframes reveal {
+        from { opacity: 0; transform: translateY(14px); }
+        to   { opacity: 1; transform: none; }
+      }
+
+      /* responsive */
+      @media (max-width: 960px) {
+        .wrap { padding: 0 24px; }
+        .masthead { grid-template-columns: 1fr; gap: 36px; padding: 48px 0 40px; }
+        main { grid-template-columns: 1fr; }
+        .specs { grid-template-columns: 1fr; gap: 28px; }
+        .specs-grid { grid-template-columns: repeat(2, 1fr); }
+        #reps { font-size: 96px; }
+      }
+      @media (max-width: 520px) {
+        .topmeta { display: none; }
+        .specs-grid { grid-template-columns: 1fr 1fr; gap: 24px 18px; }
+        #reps { font-size: 80px; }
+      }
     </style>
   </head>
-  <body class="min-h-screen relative grain overflow-x-hidden">
+  <body>
+    <div class="wrap">
+      <!-- top bar -->
+      <header class="topbar reveal">
+        <div class="brand">
+          <span class="brand-mark">Handgrip<em>.</em></span>
+          <span class="brand-sub">A study in computer vision</span>
+        </div>
+        <div class="topmeta">
+          <span><b>Renan&nbsp;Machado</b> · Portfolio</span>
+          <span>MediaPipe · WASM · GPU</span>
+          <span id="clock">--:--:--</span>
+        </div>
+      </header>
 
-    <!-- ambient pools -->
-    <div class="pointer-events-none fixed -top-60 -left-40 w-[44rem] h-[44rem] rounded-full blur-3xl opacity-[0.10]" style="background: radial-gradient(circle, var(--acid), transparent 60%);"></div>
-    <div class="pointer-events-none fixed bottom-[-20rem] right-[-10rem] w-[38rem] h-[38rem] rounded-full blur-3xl opacity-[0.08]" style="background: radial-gradient(circle, #1b6cff, transparent 60%);"></div>
-    <div class="pointer-events-none fixed inset-0 grid-faint opacity-80"></div>
-
-    <!-- top bar -->
-    <header class="relative z-10 flex items-center justify-between px-6 md:px-12 py-5 border-b border-white/[0.06] reveal">
-      <div class="flex items-center gap-4">
-        <svg width="22" height="22" viewBox="0 0 22 22" class="shrink-0">
-          <rect x="1" y="1" width="20" height="20" fill="none" stroke="currentColor" stroke-opacity=".4"/>
-          <circle cx="11" cy="11" r="3" fill="none" stroke="#c6ff3d" stroke-width="1.4"/>
-          <circle cx="11" cy="11" r="1.2" fill="#c6ff3d"/>
-        </svg>
-        <span class="text-[10px] tracking-[0.4em] uppercase text-white/70">Handgrip Vision Deck</span>
-        <span class="hidden sm:inline-block w-px h-3 bg-white/15"></span>
-        <span class="hidden sm:inline text-[10px] tracking-[0.4em] uppercase text-white/35">Strength · Lab 02</span>
-      </div>
-      <div class="hidden md:flex items-center gap-5 text-[10px] tracking-[0.35em] uppercase text-white/40">
-        <span>edition n°01</span>
-        <span class="w-1 h-1 rounded-full bg-white/20"></span>
-        <span>mediapipe · wasm</span>
-        <span class="w-1 h-1 rounded-full bg-white/20"></span>
-        <span id="clock" class="text-white/60">--:--:--</span>
-      </div>
-    </header>
-
-    <!-- magazine masthead -->
-    <section class="relative z-10 px-6 md:px-12 pt-14 pb-10">
-      <div class="grid grid-cols-12 gap-6 items-end">
-        <div class="col-span-12 lg:col-span-8 rise">
-          <div class="flex items-center gap-4 mb-6">
-            <span class="acid-stripe h-2 w-16"></span>
-            <p class="text-[10px] tracking-[0.5em] uppercase text-white/45">issue 001 — silent inference, no cloud</p>
-          </div>
-          <h1 class="font-serif font-black text-[clamp(3rem,9vw,8rem)] leading-[0.82] tracking-[-0.04em]">
-            Hand<span style="color: var(--acid)">/</span>grip<span class="font-edito italic font-light text-white/55">,</span>
-            <span class="block font-edito italic font-light text-white/55 mt-2">a study of fingers in the dark.</span>
+      <!-- masthead -->
+      <section class="masthead">
+        <div class="reveal-2">
+          <div class="eyebrow">Project 01 — Real-time hand tracking</div>
+          <h1 class="title">
+            Counting&nbsp;reps<br />
+            <em>by watching</em> a hand close.
           </h1>
         </div>
-        <div class="col-span-12 lg:col-span-4 reveal" style="animation-delay:.35s">
-          <div class="border-l border-white/10 pl-5 max-w-sm ml-auto">
-            <p class="text-[10px] tracking-[0.4em] uppercase text-white/40 mb-3">manifesto</p>
-            <p class="font-edito italic text-xl leading-snug text-white/80">
-              Twenty-one keypoints. Sixty frames a second. One hand closing, opening, closing — counted in silence, on glass.
-            </p>
-          </div>
+        <div class="lede reveal-3">
+          Twenty-one keypoints per frame, inferred locally on the GPU. A small state machine watches the fingers fold toward the palm, and counts.
+          <span class="author">Built with MediaPipe · TypeScript · Bun</span>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- main composition -->
-    <main class="relative z-10 px-6 md:px-12 pb-12 grid grid-cols-12 gap-6">
-
-      <!-- left vertical index -->
-      <div class="hidden lg:flex col-span-1 flex-col items-center justify-between py-2 reveal" style="animation-delay:.2s">
-        <div class="vrule text-[10px] tracking-[0.5em] uppercase text-white/35">channel · 01 / hand_landmarker</div>
-        <div class="font-serif text-white/15 text-5xl leading-none">N°<br>01</div>
-        <div class="vrule text-[10px] tracking-[0.5em] uppercase text-white/35">21 keypoints · float16 · gpu</div>
-      </div>
-
-      <!-- viewport -->
-      <div class="col-span-12 lg:col-span-8 reveal" style="animation-delay:.25s">
-        <div class="relative">
-          <!-- index label above frame -->
-          <div class="flex items-center justify-between mb-3">
-            <div class="flex items-center gap-3 text-[10px] tracking-[0.4em] uppercase text-white/45">
-              <span class="w-6 h-px bg-white/30"></span>
-              fig. 01 — live capture
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="chip"><span class="w-1.5 h-1.5 rounded-full pulse-dot" style="background: var(--blood);"></span> Rec · Live</span>
-              <span class="chip">640 × 480 · gpu</span>
-            </div>
+      <!-- main grid -->
+      <main>
+        <!-- viewport -->
+        <section class="reveal-2">
+          <div class="section-label">
+            <span>Fig. 01 — Live capture</span>
+            <span class="num">640 × 480</span>
           </div>
 
-          <div class="relative overflow-hidden frame-cut glow-edge scanlines bg-black" style="aspect-ratio: 4/3;">
-            <div class="corner tl"></div><div class="corner tr"></div>
-            <div class="corner bl"></div><div class="corner br"></div>
+          <div class="viewport">
+            <video id="video" autoplay playsinline muted></video>
+            <canvas id="canvas" width="640" height="480"></canvas>
 
-            <video id="video" autoplay playsinline muted
-              class="absolute inset-0 w-full h-full object-cover"></video>
-            <canvas id="canvas" width="640" height="480"
-              class="absolute inset-0 w-full h-full object-cover pointer-events-none"></canvas>
-
-            <!-- reticle crosshair -->
-            <svg class="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
-              <line x1="50" y1="0" x2="50" y2="100" stroke="rgba(198,255,61,.18)" stroke-width=".15" stroke-dasharray=".6 1.2"/>
-              <line x1="0" y1="50" x2="100" y2="50" stroke="rgba(198,255,61,.18)" stroke-width=".15" stroke-dasharray=".6 1.2"/>
-            </svg>
-
-            <div class="vignette"></div>
-
-            <!-- HUD top-left: hand state -->
-            <div class="absolute top-3 left-3 flex items-center gap-2">
-              <span class="chip"><span class="w-1.5 h-1.5 rounded-full pulse-dot" style="background: var(--blood);"></span> CH.01 · HAND_LANDMARKER</span>
-            </div>
-
-            <!-- HUD top-right: reps + spec -->
-            <div class="absolute top-3 right-3 flex items-center gap-2">
-              <div class="chip" style="border-color: rgba(198,255,61,.35);">
-                <span class="text-white/50">reps</span>
-                <span id="reps-hud" class="font-serif font-black text-base leading-none tabular-nums" style="color: var(--acid)">00</span>
+            <div class="viewport-overlay">
+              <div class="vp-row">
+                <span class="vp-tag live"><span class="dot"></span>Live · Local inference</span>
+                <span class="vp-tag">Channel 01 · Hand_landmarker</span>
               </div>
-            </div>
-
-            <!-- HUD bottom: legend strip -->
-            <div class="absolute bottom-3 left-3 right-3 flex items-end justify-between text-[10px] tracking-[0.35em] uppercase">
-              <div class="flex items-center gap-4 text-white/55">
-                <span class="flex items-center gap-2"><span class="w-5 h-[2px]" style="background: var(--acid)"></span>connectors</span>
-                <span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full" style="background: var(--blood)"></span>landmarks</span>
-              </div>
-              <div class="hidden sm:flex items-center gap-2 text-white/40">
-                <span class="blink-soft">●</span>
-                <span>inference local · 0 ms uplink</span>
+              <div class="vp-row">
+                <span class="vp-tag">21 keypoints · float16</span>
+                <span class="vp-tag">
+                  Reps&nbsp;·&nbsp;<b id="reps-hud" style="color:#ece8dd;font-family:'Fraunces',serif;font-weight:500;letter-spacing:-.02em;">00</b>
+                </span>
               </div>
             </div>
           </div>
 
-          <!-- caption row -->
-          <div class="mt-3 flex items-center justify-between text-[10px] tracking-[0.4em] uppercase text-white/30">
-            <span><span class="font-edito italic text-white/55 normal-case tracking-normal text-sm">fig. 01 ·</span> a closing fist, frame after frame.</span>
-            <span>plate / 640.480</span>
+          <div class="caption">
+            <span class="figref">A closing fist, frame after frame.</span>
+            <span>Plate&nbsp;/&nbsp;01</span>
           </div>
-        </div>
-      </div>
+        </section>
 
-      <!-- right rail -->
-      <aside class="col-span-12 lg:col-span-3 flex flex-col gap-4 reveal" style="animation-delay:.35s">
-
-        <!-- REP COUNTER hero -->
-        <div class="card frame-cut p-5 pb-7 relative overflow-hidden">
-          <div class="corner tl"></div><div class="corner tr"></div>
-          <div class="corner bl"></div><div class="corner br"></div>
-
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <span class="w-1.5 h-1.5 rounded-full pulse-dot" style="background: var(--acid)"></span>
-              <p class="text-[9px] tracking-[0.45em] uppercase text-white/55">repetitions / live</p>
+        <!-- right panel -->
+        <aside class="reveal-3">
+          <!-- reps -->
+          <div class="panel">
+            <div class="panel-head">
+              <span><b>Repetitions</b></span>
+              <span>Set&nbsp;01</span>
             </div>
-            <span class="text-[9px] tracking-[0.35em] uppercase text-white/30">set · 01</span>
-          </div>
 
-          <!-- ghost word -->
-          <div class="relative mt-2" style="min-height: 7.5rem;">
-            <span class="ghost-word">REPS</span>
-            <div class="relative flex items-end gap-2">
-              <div id="reps" class="rep-num text-[7.5rem]"><span class="accent">0</span></div>
-              <div class="text-[9px] tracking-[0.35em] uppercase text-white/35 pb-4 font-edito italic normal-case tracking-normal text-base">per set</div>
+            <div class="rep-display">
+              <div id="reps"><span class="accent">0</span>0</div>
+              <div class="rep-unit">per set</div>
             </div>
-          </div>
 
-          <div class="mt-2 h-[2px] stat-tick opacity-80"></div>
-
-          <div class="mt-4 grid grid-cols-3 gap-3">
-            <div>
-              <p class="text-[9px] tracking-[0.35em] uppercase text-white/35">grip</p>
-              <p class="num-mini text-xl mt-1"><span id="grip-val" class="text-white">—</span></p>
-            </div>
-            <div>
-              <p class="text-[9px] tracking-[0.35em] uppercase text-white/35">best</p>
-              <p class="num-mini text-xl mt-1 text-white/85">—</p>
-            </div>
-            <div>
-              <p class="text-[9px] tracking-[0.35em] uppercase text-white/35">cadence</p>
-              <p class="num-mini text-xl mt-1 text-white/85">—</p>
+            <div class="stats">
+              <div class="stat">
+                <div class="k">Grip</div>
+                <div class="v" id="grip-val">—</div>
+              </div>
+              <div class="stat">
+                <div class="k">Best</div>
+                <div class="v">—</div>
+              </div>
+              <div class="stat">
+                <div class="k">Cadence</div>
+                <div class="v">—</div>
+              </div>
             </div>
           </div>
 
-          <div class="mt-4 spark opacity-70"></div>
-        </div>
-
-        <!-- status -->
-        <div class="card p-5">
-          <div class="flex items-center justify-between mb-3">
-            <p class="text-[9px] tracking-[0.45em] uppercase text-white/50">status</p>
-            <span class="text-[9px] tracking-[0.35em] uppercase text-white/30">channel 01</span>
+          <!-- status -->
+          <div class="panel">
+            <div class="panel-head">
+              <span><b>Status</b></span>
+              <span>Channel&nbsp;01</span>
+            </div>
+            <div id="info">Loading model…</div>
           </div>
-          <div id="info" class="font-edito italic text-2xl leading-tight" style="color: var(--acid)">Carregando modelo...</div>
-        </div>
 
-        <!-- legend -->
-        <div class="card p-5">
-          <p class="text-[9px] tracking-[0.45em] uppercase text-white/50 mb-4">legend</p>
-          <ul class="space-y-3 text-sm">
-            <li class="flex items-center justify-between">
-              <span class="flex items-center gap-3"><span class="w-7 h-[2px]" style="background: var(--acid)"></span><span class="text-white/75">connectors</span></span>
-              <span class="text-white/30 text-[10px] tracking-widest">20</span>
-            </li>
-            <li class="flex items-center justify-between">
-              <span class="flex items-center gap-3"><span class="w-2.5 h-2.5 rounded-full" style="background: var(--blood)"></span><span class="text-white/75">landmarks</span></span>
-              <span class="text-white/30 text-[10px] tracking-widest">21</span>
-            </li>
-            <li class="flex items-center justify-between">
-              <span class="flex items-center gap-3"><span class="w-2.5 h-2.5 border" style="border-color: var(--amber)"></span><span class="text-white/75">wrist origin</span></span>
-              <span class="text-white/30 text-[10px] tracking-widest">01</span>
-            </li>
-          </ul>
-        </div>
+          <!-- legend -->
+          <div class="panel">
+            <div class="panel-head">
+              <span><b>Legend</b></span>
+              <span>Overlay</span>
+            </div>
+            <ul class="legend">
+              <li>
+                <span class="swatch"><span class="sw-line"></span>Connectors</span>
+                <span class="n">20</span>
+              </li>
+              <li>
+                <span class="swatch"><span class="sw-dot"></span>Landmarks</span>
+                <span class="n">21</span>
+              </li>
+              <li>
+                <span class="swatch"><span class="sw-sq"></span>Wrist origin</span>
+                <span class="n">01</span>
+              </li>
+            </ul>
+          </div>
+        </aside>
+      </main>
 
-        <!-- editorial brief -->
-        <div class="relative card p-5">
-          <p class="text-[9px] tracking-[0.45em] uppercase text-white/50 mb-3">brief / 001</p>
-          <p class="font-edito italic text-[15px] leading-relaxed text-white/75">
-            Twenty-one keypoints per hand, inferred frame-by-frame. Nothing leaves the device.
-          </p>
-          <p class="mt-3 text-[10px] tracking-[0.3em] uppercase text-white/35">— closed · open · closed</p>
+      <!-- specs -->
+      <section class="specs">
+        <h2>Technical <em>notes</em></h2>
+        <div class="specs-grid">
+          <div class="spec">
+            <dt>Model</dt>
+            <dd>Hand_Landmarker<small>MediaPipe Tasks · float16</small></dd>
+          </div>
+          <div class="spec">
+            <dt>Runtime</dt>
+            <dd>WASM&nbsp;/&nbsp;GPU<small>Browser-only, no server</small></dd>
+          </div>
+          <div class="spec">
+            <dt>Signal</dt>
+            <dd>Σ&nbsp;fingertip→palm<small>Normalized by hand size</small></dd>
+          </div>
+          <div class="spec">
+            <dt>Smoothing</dt>
+            <dd>EMA · α&nbsp;0.2<small>Per-frame exponential</small></dd>
+          </div>
+          <div class="spec">
+            <dt>Window</dt>
+            <dd>60 frames<small>Rolling min / max</small></dd>
+          </div>
+          <div class="spec">
+            <dt>Thresholds</dt>
+            <dd>0.35 / 0.75<small>Close · Open (dynamic)</small></dd>
+          </div>
+          <div class="spec">
+            <dt>Privacy</dt>
+            <dd>Local-only<small>Zero uplink, zero logs</small></dd>
+          </div>
+          <div class="spec">
+            <dt>Stack</dt>
+            <dd>Bun · TS<small>No bundler, no framework</small></dd>
+          </div>
         </div>
-      </aside>
-    </main>
+      </section>
 
-    <!-- divider -->
-    <div class="relative z-10 px-6 md:px-12">
-      <div class="divider"></div>
+      <!-- footer -->
+      <footer>
+        <span>© 2026 · Renan Machado</span>
+        <span>
+          <a href="https://github.com/renanmachad" target="_blank" rel="noopener">GitHub</a>
+          &nbsp;·&nbsp;
+          <a href="mailto:renanmachadopinho@gmail.com">Contact</a>
+        </span>
+      </footer>
     </div>
-
-    <!-- ticker -->
-    <footer class="relative z-10 py-4 overflow-hidden border-t border-white/[0.04]">
-      <div class="flex items-center gap-4 px-6 md:px-12">
-        <span class="chip shrink-0" style="border-color: rgba(198,255,61,.4); color: var(--acid);">SIGNAL · GREEN</span>
-        <div class="overflow-hidden flex-1">
-          <div class="ticker whitespace-nowrap text-[10px] tracking-[0.45em] uppercase text-white/35 flex gap-12">
-            <span>· hand_landmarker.task · float16 · gpu delegate · 21 keypoints · video runningmode · 2 hands max · localhost only · getusermedia · no cloud · no logs · zero uplink · </span>
-            <span>· hand_landmarker.task · float16 · gpu delegate · 21 keypoints · video runningmode · 2 hands max · localhost only · getusermedia · no cloud · no logs · zero uplink · </span>
-          </div>
-        </div>
-        <span class="hidden md:inline chip shrink-0">N° 001 / 2026</span>
-      </div>
-    </footer>
 
     <script>
       const c = document.getElementById('clock');
-      if (c) setInterval(() => { c.textContent = new Date().toTimeString().slice(0,8); }, 1000);
+      if (c) setInterval(() => { c.textContent = new Date().toTimeString().slice(0, 8); }, 1000);
     </script>
+    <script type="module" src="/scripts/script.ts"></script>
   </body>
-  <script type="module" src="/scripts/script.ts"></script>
 </html>
