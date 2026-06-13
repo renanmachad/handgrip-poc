@@ -4,8 +4,9 @@ import {
   type HandLandmarkerResult,
 } from "@mediapipe/tasks-vision";
 
-const CONNECTOR_STYLE = { color: "#45c07a", lineWidth: 5 };
-const LANDMARK_STYLE = { color: "#b8431f", lineWidth: 2 };
+// Neon arcade overlay — matches the GRIP QUEST HUD palette.
+const CONNECTOR_STYLE = { color: "#21e6ff", lineWidth: 5 };
+const LANDMARK_STYLE = { color: "#ff2e84", lineWidth: 2 };
 
 interface ViewElements {
   video: HTMLVideoElement;
