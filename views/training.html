@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GRIP QUEST — training data</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bungee&family=Chivo+Mono:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --void:   #0a0518;
+        --panel:  #1a0d3a;
+        --screen: #05030e;
+        --cyan:   #21e6ff;
+        --pink:   #ff2e84;
+        --lime:   #c6ff43;
+        --gold:   #ffd23f;
+        --violet: #9b6bff;
+        --text:   #f2ecff;
+        --mute:   #9c8fc7;
+        --rule:   rgba(155, 107, 255, 0.28);
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        background: var(--void);
+        color: var(--text);
+        font-family: 'Chivo Mono', ui-monospace, monospace;
+        font-size: 15px;
+        line-height: 1.5;
+      }
+
+      .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 16px 48px; }
+
+      header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+      h1 { font-family: 'Bungee', system-ui, sans-serif; font-weight: 400; font-size: 28px; margin: 0; letter-spacing: .02em; }
+      h1 span { color: var(--pink); }
+      header a { color: var(--cyan); font-size: 13px; text-decoration: none; letter-spacing: .12em; text-transform: uppercase; }
+
+      .layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; margin-top: 20px; }
+      @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+
+      .screen {
+        position: relative; aspect-ratio: 4 / 3; background: var(--screen);
+        border: 2px solid var(--rule); border-radius: 12px; overflow: hidden;
+        transition: border-color .15s ease, box-shadow .15s ease;
+      }
+      body[data-capturing="handgrip"] .screen { border-color: var(--lime); box-shadow: 0 0 24px rgba(198,255,67,.35); }
+      body[data-capturing="no_handgrip"] .screen { border-color: var(--pink); box-shadow: 0 0 24px rgba(255,46,132,.35); }
+
+      /* Mirrored for display only — saved frames are the raw, unmirrored video. */
+      #video, #canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+      #canvas { pointer-events: none; }
+
+      .card { background: var(--panel); border: 1px solid var(--rule); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
+      .label { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--mute); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+
+      .capture { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .capture button {
+        font: inherit; color: var(--void); border: 0; border-radius: 10px; padding: 14px 10px;
+        cursor: pointer; font-weight: 700; touch-action: none; user-select: none;
+      }
+      .capture button kbd { display: block; font-family: 'Bungee', sans-serif; font-size: 22px; }
+      .capture [data-label="handgrip"] { background: var(--lime); }
+      .capture [data-label="no_handgrip"] { background: var(--pink); }
+      .capture button:active { filter: brightness(.85); }
+
+      .counts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: center; }
+      .counts b { display: block; font-family: 'Bungee', sans-serif; font-weight: 400; font-size: 30px; }
+      .counts .g b { color: var(--lime); }
+      .counts .n b { color: var(--pink); }
+      .counts small { color: var(--mute); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
+
+      #session { color: var(--gold); font-weight: 700; word-break: break-all; }
+      .ghost {
+        font: inherit; font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+        background: transparent; color: var(--cyan); border: 1px solid var(--cyan); border-radius: 6px; padding: 3px 8px; cursor: pointer;
+      }
+
+      .previews { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; align-items: start; }
+      .previews img { width: 100%; border-radius: 6px; border: 1px solid var(--rule); background: var(--screen); }
+
+      #status { color: var(--cyan); min-height: 1.5em; margin-top: 12px; }
+
+      .tips { color: var(--mute); font-size: 13px; margin: 0; padding-left: 18px; }
+      .tips li { margin-bottom: 4px; }
+      .tips b { color: var(--text); }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <h1>GRIP <span>TRAINING</span></h1>
+        <a href="/">◂ Back to game</a>
+      </header>
+
+      <div class="layout">
+        <section>
+          <div class="screen">
+            <video id="video" autoplay playsinline muted></video>
+            <canvas id="canvas" width="640" height="480"></canvas>
+          </div>
+          <div id="status">Booting…</div>
+        </section>
+
+        <aside>
+          <div class="card">
+            <div class="label"><span>Hold to capture</span><span>~4 fps</span></div>
+            <div class="capture">
+              <button type="button" data-label="handgrip"><kbd>G</kbd>Handgrip</button>
+              <button type="button" data-label="no_handgrip"><kbd>N</kbd>No handgrip</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="label"><span>Dataset</span><span>full frames</span></div>
+            <div class="counts">
+              <div class="g"><b id="count-handgrip">0</b><small>handgrip</small></div>
+              <div class="n"><b id="count-no_handgrip">0</b><small>no handgrip</small></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="label"><span>Session</span><button type="button" class="ghost" id="new-session">New (S)</button></div>
+            <div id="session">—</div>
+          </div>
+
+          <div class="card">
+            <div class="label"><span>Last sample</span><span>full · crop</span></div>
+            <div class="previews">
+              <img id="last-full" alt="Last full frame" hidden />
+              <img id="last-crop" alt="Last hand crop" hidden />
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="label"><span>Tips</span></div>
+            <ul class="tips">
+              <li>Start a <b>new session</b> whenever lighting, background or person changes. Split train/test by session later.</li>
+              <li>For <b>no handgrip</b>, include a closed fist, an open hand and other objects in the hand.</li>
+              <li>Vary distance, angle and which hand you use.</li>
+              <li>Keep the classes roughly balanced.</li>
+            </ul>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <script type="module" src="/scripts/training.ts"></script>
+  </body>
+</html>
