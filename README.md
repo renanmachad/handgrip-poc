@@ -60,6 +60,22 @@ bun start
 > `getUserMedia` requires `localhost` or HTTPS — opening the HTML file
 > directly will not work.
 
+## Collecting training data
+
+`http://localhost:3000/training` captures labeled webcam frames for a
+"handgrip / no handgrip" image classifier. Hold **G** (handgrip) or **N**
+(no handgrip) to capture about 4 frames/s, and press **S** to start a new session.
+Samples are written locally to:
+
+```
+dataset/
+├── full/<label>/<session>_<ts>_<id>.jpg   # raw frame, unmirrored
+├── crop/<label>/<session>_<ts>_<id>.jpg   # square crop around the hand (when detected)
+└── manifest.csv                           # full_path, crop_path, label, session, has_hand, captured_at
+```
+
+Split train/test **by session**, not by frame: consecutive frames are near-duplicates.
+
 ## Type-checking
 
 ```bash

@@ -12,11 +12,13 @@ No test runner or linter is configured. Verifying behavior means running the app
 
 ## Architecture
 
-Real-time hand-grip rep counter that runs entirely in the browser (no backend logic, nothing leaves the device). Bun-native: no bundler config, no framework.
+Real-time hand-grip rep counter that runs entirely in the browser; nothing leaves the machine (the local server only serves pages and stores training samples on disk). Bun-native: no bundler config, no framework.
 
-- `index.ts` — `Bun.serve` entrypoint. Routes map paths to HTML imports (`import x from "./views/x.html"`); Bun bundles each page's `<script type="module" src="/scripts/....ts">` at serve time. Add pages by adding an HTML import and a `routes` entry.
+- `index.ts` — `Bun.serve` entrypoint. Routes map paths to HTML imports (`import x from "./views/x.html"`); Bun bundles each page's `<script type="module" src="/scripts/....ts">` at serve time. Add pages by adding an HTML import and a `routes` entry. `/api/samples` is the only server logic (see `server/`).
 - `views/*.html` — each page is self-contained: markup and all CSS inline. `index.html` also has an inline non-module `<script>` "gamification layer" (clock, power meter, combo/XP, FX toggle). It is not wired to the TS modules: it watches the DOM elements the TS writes to (`#grip-val`, `#reps`, …) through `MutationObserver`. Renaming or restructuring those element IDs breaks both sides.
-- `scripts/` — client code, one responsibility per module, wired together in `script.ts`:
+- `/training` (`views/training.html` + `scripts/training.ts`) — data-collection page for a handgrip-vs-no-handgrip image classifier. Holding `G`/`N` (or the buttons) posts raw, unmirrored frames, plus a square hand crop from the MediaPipe landmarks (`scripts/sample-capture.ts`), to `POST /api/samples`. `server/dataset.ts` writes `dataset/{full,crop}/<label>/<session>_<ts>_<id>.jpg` and appends to `dataset/manifest.csv` (git-ignored). Every sample carries a session ID so train/test can be split by session: consecutive frames are near-duplicates.
+- `server/` — server-only code (uses Bun/Node APIs). Never import it from `scripts/`.
+- `scripts/` — client code, one responsibility per module. The game page is wired together in `script.ts`:
   - `script.ts` — `bootstrap()` loads the model and the camera in parallel, then `App` runs a `requestAnimationFrame` loop: detect → draw overlay → `calculateGrip` → `RepCounter.process` → update the view.
   - `camera.ts` — `getUserMedia` at 640×480.
   - `hand-tracker.ts` — `HandTracker` wraps MediaPipe `HandLandmarker` (VIDEO mode, GPU delegate). The WASM runtime and the `.task` model come from CDNs (jsdelivr / Google Storage) at runtime. The WASM URL pins `@0.10.14`, while `package.json` has `^0.10.35`, so keep the two compatible when upgrading.
