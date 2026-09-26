@@ -76,6 +76,21 @@ dataset/
 
 Split train/test **by session**, not by frame: consecutive frames are near-duplicates.
 
+## Training the classifier
+
+`ml/handgrip_classifier.ipynb` is a study notebook (scikit-learn) that reads
+`dataset/manifest.csv`. Its sections follow the early chapters of
+*Hands-On Machine Learning*.
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r ml/requirements.txt
+jupyter lab ml/handgrip_classifier.ipynb
+```
+
+Exported models go to `ml/models/` (git-ignored).
+
 ## Type-checking
 
 ```bash
