@@ -1,4 +1,4 @@
-import { startCamera, type Resolution } from "./camera.ts";
+import { describeStartupError, startCamera, type Resolution } from "./camera.ts";
 import { calculateGrip } from "./grip.ts";
 import { describeHands, HandTracker, readHandedness } from "./hand-tracker.ts";
 import { RepCounter } from "./rep-counter.ts";
@@ -72,7 +72,7 @@ async function bootstrap(): Promise<void> {
     ]);
     new App(video, tracker, new RepCounter(), view).start();
   } catch (error) {
-    view.showStatus("Camera or model unavailable — check permissions.");
+    view.showStatus(describeStartupError(error));
     console.error("Failed to start the handgrip tracker:", error);
   }
 }
