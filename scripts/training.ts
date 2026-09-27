@@ -3,7 +3,7 @@ import {
   HandLandmarker,
   type HandLandmarkerResult,
 } from "@mediapipe/tasks-vision";
-import { startCamera, type Resolution } from "./camera.ts";
+import { describeStartupError, startCamera, type Resolution } from "./camera.ts";
 import { HandTracker } from "./hand-tracker.ts";
 import { FrameGrabber, handCropBox, type CropBox } from "./sample-capture.ts";
 
@@ -215,7 +215,7 @@ async function bootstrap(): Promise<void> {
     ]);
     new TrainingApp(video, canvas, tracker).start();
   } catch (error) {
-    setStatus("Camera or model unavailable — check permissions.");
+    setStatus(describeStartupError(error));
     console.error("Failed to start the training capture:", error);
   }
 }

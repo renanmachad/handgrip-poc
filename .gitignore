@@ -35,3 +35,9 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # collected training samples (images + manifest)
 dataset
+
+# python / notebook
+.venv
+__pycache__
+.ipynb_checkpoints
+ml/models
